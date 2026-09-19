@@ -31,13 +31,10 @@ jobs:
         with:
           packages: 'platforms;android-34 build-tools;34.0.0 platform-tools'
 
-      # 4. ضبط أو توليد Gradle Wrapper بإصدار 8.7 المتوافق
+      # 4. ضبط أو توليد Gradle Wrapper بإصدار 8.7 المتوافق تماماً مع AGP 8.5.2
       - name: 4. Setup Gradle Wrapper
         run: |
-          if [ ! -f "gradlew" ]; then
-            echo "Generating Gradle wrapper files..."
-            gradle wrapper --gradle-version 8.7
-          fi
+          gradle wrapper --gradle-version 8.7
           chmod +x gradlew
 
       # 5. توليد ملف التوقيع تلقائياً في المسار الصحيح وضبط متغيرات البيئة
