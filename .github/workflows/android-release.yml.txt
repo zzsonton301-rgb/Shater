@@ -1,0 +1,117 @@
+name: Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Tag للإصدار، مثال v1.0.0"
+        required: true
+        default: "v1.0.0"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  JAVA_VERSION: "17"
+  ANDROID_API: "35"
+  BUILD_TOOLS: "35.0.0"
+  KEYSTORE_FILE: "${{ github.workspace }}/release-keystore.jks"
+
+jobs:
+  build-release:
+    name: Build signed APK and AAB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set release tag
+        id: release
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-${ANDROID_API}" "build-tools;${BUILD_TOOLS}"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Validate signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for pair in "ANDROID_KEYSTORE_BASE64=$KEYSTORE_BASE64" "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" "ANDROID_KEY_ALIAS=$KEY_ALIAS" "ANDROID_KEY_PASSWORD=$KEY_PASSWORD"; do
+            if [[ -z "${pair#*=}" ]]; then echo "Missing GitHub secret: ${pair%%=*}"; missing=1; fi
+          done
+          if [[ "$missing" -eq 1 ]]; then
+            echo "Configure the four Android signing secrets before building a release."
+            exit 1
+          fi
+
+      - name: Decode release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+
+      - name: Build signed APK and AAB
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ env.KEYSTORE_FILE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          gradle --no-daemon --stacktrace assembleRelease bundleRelease
+
+      - name: Verify outputs
+        run: |
+          test -s app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
+          apksigner verify --verbose app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload APK, AAB, and checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: shater-invoices-${{ steps.release.outputs.tag }}
+          if-no-files-found: error
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/mapping/release/**
+            !app/build/outputs/mapping/release/**/*.txt
+
+      - name: Create checksums
+        run: sha256sum app/build/outputs/apk/release/app-release.apk app/build/outputs/bundle/release/app-release.aab > shater-invoices-${{ steps.release.outputs.tag }}-SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: شاطر للفواتير ${{ steps.release.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
+            shater-invoices-${{ steps.release.outputs.tag }}-SHA256SUMS.txt
