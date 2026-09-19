@@ -19,13 +19,17 @@ android {
 
     signingConfigs {
         create("release") {
-            val storeFilePath = System.getenv("ANDROID_KEYSTORE_FILE")
-            if (!storeFilePath.isNullOrBlank()) {
-                storeFile = file(storeFilePath)
-                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: ""
-                keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: ""
-                keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: ""
+            // التحقق من متغير البيئة القادم من GitHub Actions أو الاعتماد على المسار الافتراضي المضمون
+            val envStoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
+            if (!envStoreFile.isNullOrBlank()) {
+                storeFile = file(envStoreFile)
+            } else {
+                storeFile = file("release-key.jks") // المسار الاحتياطي داخل مجلد التطبيق
             }
+
+            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: "shater_pass_2026"
+            keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "shater_alias"
+            keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: "shater_pass_2026"
         }
     }
 
@@ -46,7 +50,6 @@ android {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
 
-    // إضافة استراتيجية لتوحيد وتثبيت إصدارات المكتبات ومنع تضارب الـ Classpath
     configurations.all {
         resolutionStrategy {
             force("androidx.core:core-ktx:1.13.1")
@@ -81,7 +84,6 @@ dependencies {
     
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     
-    // مكتبات الكاميرا بالإصدار 1.4.1 المستقر
     implementation("androidx.camera:camera-camera2:1.4.1")
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.camera:camera-view:1.4.1")
