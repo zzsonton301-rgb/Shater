@@ -45,7 +45,7 @@ jobs:
             -storepass "android_pass_2026" -keypass "android_pass_2026" \
             -dname "CN=TraderPro, OU=Native, O=Kotlin, L=Cairo, S=Egypt, C=EG"
 
-      # 6. تنظيف المشروع وبناء الفواتير والحزم الموقعة بالكامل
+      # 6. تنظيف المشروع وبناء الحزم بوضع المعلومات الكاملة (--info) لكشف أي خطأ بدقة
       - name: 6. Build Android Binaries (Kotlin Native)
         env:
           ANDROID_KEYSTORE_FILE: "app/release-key.jks"
@@ -54,8 +54,8 @@ jobs:
           ANDROID_KEY_PASSWORD: "android_pass_2026"
         run: |
           ./gradlew clean
-          ./gradlew assembleRelease --no-daemon --stacktrace
-          ./gradlew bundleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --info --stacktrace
+          ./gradlew bundleRelease --info --stacktrace
 
       # 7. تجهيز مسارات الملفات الناتجة وتسميتها للرفع
       - name: 7. Prepare Artifacts for Release
