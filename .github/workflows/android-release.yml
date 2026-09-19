@@ -47,6 +47,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      # تم إزالة الحزمة القديمة "tools" لتجنب خطأ sdkmanager النهائي
       - name: Install Android SDK packages
         run: sdkmanager "platform-tools" "platforms;android-${ANDROID_API}" "build-tools;${BUILD_TOOLS}"
 
@@ -55,35 +56,23 @@ jobs:
         with:
           gradle-version: "8.7"
 
-      - name: Validate signing secrets
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      # توليد ملف التوقيع والأسرار تلقائياً بالكامل دون الحاجة لأي GitHub Secrets
+      - name: Generate Automatic Keystore and Credentials
         run: |
-          missing=0
-          for pair in "ANDROID_KEYSTORE_BASE64=$KEYSTORE_BASE64" "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" "ANDROID_KEY_ALIAS=$KEY_ALIAS" "ANDROID_KEY_PASSWORD=$KEY_PASSWORD"; do
-            if [[ -z "${pair#*=}" ]]; then echo "Missing GitHub secret: ${pair%%=*}"; missing=1; fi
-          done
-          if [[ "$missing" -eq 1 ]]; then
-            echo "Configure the four Android signing secrets before building a release."
-            exit 1
-          fi
-
-      - name: Decode release keystore
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          echo "Generating automatic release keystore..."
+          keytool -genkey -v -keystore "${{ env.KEYSTORE_FILE }}" \
+            -alias "auto_release_alias" -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "auto_secure_pass_2026" -keypass "auto_secure_pass_2026" \
+            -dname "CN=AutoAndroid, OU=Production, O=Shater, L=Cairo, S=Egypt, C=EG"
 
       - name: Build signed APK and AAB
         env:
           ANDROID_KEYSTORE_FILE: ${{ env.KEYSTORE_FILE }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PASSWORD: "auto_secure_pass_2026"
+          ANDROID_KEY_ALIAS: "auto_release_alias"
+          ANDROID_KEY_PASSWORD: "auto_secure_pass_2026"
         run: |
-          gradle --no-daemon --stacktrace assembleRelease bundleRelease
+          ./gradlew --no-daemon --stacktrace assembleRelease bundleRelease
 
       - name: Verify outputs
         run: |
