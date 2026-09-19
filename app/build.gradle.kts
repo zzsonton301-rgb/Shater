@@ -19,12 +19,12 @@ android {
 
     signingConfigs {
         create("release") {
-            // التحقق من متغير البيئة القادم من GitHub Actions أو الاعتماد على المسار الافتراضي المضمون
+            // استقبال المسار الصحيح من متغير البيئة أو ضبطه على مجلد التطبيق app/ مباشرة
             val envStoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
             if (!envStoreFile.isNullOrBlank()) {
                 storeFile = file(envStoreFile)
             } else {
-                storeFile = file("release-key.jks") // المسار الاحتياطي داخل مجلد التطبيق
+                storeFile = file("release-key.jks") // سيتم تنفيذه داخل نطاق مجلد app
             }
 
             storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: "shater_pass_2026"
