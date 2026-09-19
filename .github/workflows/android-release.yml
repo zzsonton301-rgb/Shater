@@ -1,4 +1,4 @@
-name: "Kotlin Native Pure Production Build"
+name: "Shater Production Build & Release"
 
 on:
   push:
@@ -14,67 +14,69 @@ jobs:
       contents: write
 
     steps:
-      # 1. سحب الكود من المستودع
+      # 1. سحب أحدث نسخة نظيفة من المستودع
       - name: 1. Checkout Code
         uses: actions/checkout@v4
 
-      # 2. تهيئة بيئة جافا المتوافقة مع أندرويد
+      # 2. تهيئة بيئة جافا المتوافقة (Temurin 17)
       - name: 2. Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 3. تهيئة بيئة أندرويد SDK وتجنب خطأ الحزم الملغاة
+      # 3. تهيئة بيئة أندرويد SDK الإصدار 34
       - name: 3. Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: 'platforms;android-34 build-tools;34.0.0 platform-tools'
 
-      # 4. ضبط أو توليد Gradle Wrapper بإصدار 8.7 المتوافق تماماً مع AGP 8.5.2
-      - name: 4. Setup Gradle Wrapper
+      # 4. بناء وتوليد ملف Gradle Wrapper من الصفر تماماً لكل عملية بناء
+      - name: 4. Setup Fresh Gradle Wrapper
         run: |
+          rm -rf gradle/wrapper/gradle-wrapper.jar gradle/wrapper/gradle-wrapper.properties gradlew gradlew.bat
           gradle wrapper --gradle-version 8.7
           chmod +x gradlew
 
-      # 5. توليد ملف التوقيع تلقائياً في المسار الصحيح وضبط متغيرات البيئة
-      - name: 5. Generate Keystore Automatically
+      # 5. توليد مفتاح التوقيع (Keystore) تلقائياً باسم تطبيق شاطر
+      - name: 5. Generate Fresh Keystore
         run: |
+          rm -f app/release-key.jks
           keytool -genkey -v -keystore app/release-key.jks \
-            -alias traderpro_alias -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass "android_pass_2026" -keypass "android_pass_2026" \
-            -dname "CN=TraderPro, OU=Native, O=Kotlin, L=Cairo, S=Egypt, C=EG"
+            -alias shater_alias -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "shater_pass_2026" -keypass "shater_pass_2026" \
+            -dname "CN=Shater, OU=Invoices, O=Android, L=Cairo, S=Egypt, C=EG"
 
-      # 6. تنظيف المشروع وبناء الحزم بوضع المعلومات الكاملة (--info) لكشف أي خطأ بدقة
-      - name: 6. Build Android Binaries (Kotlin Native)
+      # 6. تنظيف كامل وشامل وبناء حزم الـ APK والـ AAB من الصفر مع تفعيل الـ Debugging عند الحاجة
+      - name: 6. Build Shater Binaries from Scratch
         env:
           ANDROID_KEYSTORE_FILE: "app/release-key.jks"
-          ANDROID_KEYSTORE_PASSWORD: "android_pass_2026"
-          ANDROID_KEY_ALIAS: "traderpro_alias"
-          ANDROID_KEY_PASSWORD: "android_pass_2026"
+          ANDROID_KEYSTORE_PASSWORD: "shater_pass_2026"
+          ANDROID_KEY_ALIAS: "shater_alias"
+          ANDROID_KEY_PASSWORD: "shater_pass_2026"
         run: |
-          ./gradlew clean
-          ./gradlew assembleRelease --info --stacktrace
-          ./gradlew bundleRelease --info --stacktrace
+          ./gradlew clean --no-daemon
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew bundleRelease --no-daemon --stacktrace
 
-      # 7. تجهيز مسارات الملفات الناتجة وتسميتها للرفع
-      - name: 7. Prepare Artifacts for Release
+      # 7. تجهيز مسارات الملفات الناتجة وتسميتها باسم "شاطر" بدقة
+      - name: 7. Prepare Shater Artifacts
         run: |
           APK_PATH=$(find app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
           AAB_PATH=$(find app/build/outputs/bundle/release/ -name "*.aab" | head -n 1)
           
-          cp "$APK_PATH" Final-Release-Signed.apk
-          cp "$AAB_PATH" Final-Release-Signed.aab
+          cp "$APK_PATH" Shater-Invoices-Release.apk
+          cp "$AAB_PATH" Shater-Invoices-Release.aab
 
-      # 8. رفع النسخة النهائية كـ Release على المستودع
-      - name: 8. Publish GitHub Release
+      # 8. رفع النسخ الاحترافية الموقعة كـ Release رسمي على المستودع
+      - name: 8. Publish Shater GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: "Kotlin Native Release v${{ github.run_number }}"
+          tag_name: v1.0.${{ github.run_number }}
+          name: "Shater Invoices Release v1.0.${{ github.run_number }}"
           files: |
-            Final-Release-Signed.apk
-            Final-Release-Signed.aab
+            Shater-Invoices-Release.apk
+            Shater-Invoices-Release.aab
             app/release-key.jks
           draft: false
           prerelease: false
