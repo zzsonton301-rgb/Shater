@@ -51,10 +51,10 @@ jobs:
       # 6. تنظيف المشروع وبناء الفواتير والحزم الموقعة بالكامل
       - name: 6. Build Android Binaries (Kotlin Native)
         env:
-          SIGNING_STORE_FILE: "release-key.jks"
-          SIGNING_STORE_PASSWORD: "android_pass_2026"
-          SIGNING_KEY_ALIAS: "traderpro_alias"
-          SIGNING_KEY_PASSWORD: "android_pass_2026"
+          ANDROID_KEYSTORE_FILE: "app/release-key.jks"
+          ANDROID_KEYSTORE_PASSWORD: "android_pass_2026"
+          ANDROID_KEY_ALIAS: "traderpro_alias"
+          ANDROID_KEY_PASSWORD: "android_pass_2026"
         run: |
           ./gradlew clean
           ./gradlew assembleRelease --no-daemon --stacktrace
