@@ -1,106 +1,85 @@
-name: Android Release
+name: "Kotlin Native Pure Production Build"
 
 on:
-  workflow_dispatch:
-    inputs:
-      release_tag:
-        description: "Tag للإصدار، مثال v1.0.0"
-        required: true
-        default: "v1.0.0"
   push:
-    tags:
-      - "v*"
-
-permissions:
-  contents: write
-
-env:
-  JAVA_VERSION: "17"
-  ANDROID_API: "35"
-  BUILD_TOOLS: "35.0.0"
-  KEYSTORE_FILE: "${{ github.workspace }}/release-keystore.jks"
+    branches:
+      - main
+      - master
+  workflow_dispatch:
 
 jobs:
-  build-release:
-    name: Build signed APK and AAB
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
-      - name: Checkout
+      # 1. سحب الكود من المستودع
+      - name: 1. Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set release tag
-        id: release
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Set up JDK 17
+      # 2. تهيئة بيئة جافا المتوافقة مع أندرويد
+      - name: 2. Setup Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Set up Android SDK
+      # 3. تهيئة بيئة أندرويد SDK وتجنب خطأ الحزم الملغاة
+      - name: 3. Setup Android SDK
         uses: android-actions/setup-android@v3
-
-      # تم إزالة الحزمة القديمة "tools" لتجنب خطأ sdkmanager النهائي
-      - name: Install Android SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-${ANDROID_API}" "build-tools;${BUILD_TOOLS}"
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.7"
+          packages: 'platforms;android-34 build-tools;34.0.0 platform-tools'
 
-      # توليد ملف التوقيع والأسرار تلقائياً بالكامل دون الحاجة لأي GitHub Secrets
-      - name: Generate Automatic Keystore and Credentials
+      # 4. ضبط أو توليد Gradle Wrapper بإصدار 8.7 المتوافق
+      - name: 4. Setup Gradle Wrapper
         run: |
-          echo "Generating automatic release keystore..."
-          keytool -genkey -v -keystore "${{ env.KEYSTORE_FILE }}" \
-            -alias "auto_release_alias" -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass "auto_secure_pass_2026" -keypass "auto_secure_pass_2026" \
-            -dname "CN=AutoAndroid, OU=Production, O=Shater, L=Cairo, S=Egypt, C=EG"
+          if [ ! -f "gradlew" ]; then
+            echo "Generating Gradle wrapper files..."
+            gradle wrapper --gradle-version 8.7
+          fi
+          chmod +x gradlew
 
-      - name: Build signed APK and AAB
+      # 5. توليد ملف التوقيع تلقائياً في المسار الصحيح وضبط متغيرات البيئة
+      - name: 5. Generate Keystore Automatically
+        run: |
+          keytool -genkey -v -keystore app/release-key.jks \
+            -alias traderpro_alias -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "android_pass_2026" -keypass "android_pass_2026" \
+            -dname "CN=TraderPro, OU=Native, O=Kotlin, L=Cairo, S=Egypt, C=EG"
+
+      # 6. تنظيف المشروع وبناء الفواتير والحزم الموقعة بالكامل
+      - name: 6. Build Android Binaries (Kotlin Native)
         env:
-          ANDROID_KEYSTORE_FILE: ${{ env.KEYSTORE_FILE }}
-          ANDROID_KEYSTORE_PASSWORD: "auto_secure_pass_2026"
-          ANDROID_KEY_ALIAS: "auto_release_alias"
-          ANDROID_KEY_PASSWORD: "auto_secure_pass_2026"
+          SIGNING_STORE_FILE: "release-key.jks"
+          SIGNING_STORE_PASSWORD: "android_pass_2026"
+          SIGNING_KEY_ALIAS: "traderpro_alias"
+          SIGNING_KEY_PASSWORD: "android_pass_2026"
         run: |
-          ./gradlew --no-daemon --stacktrace assembleRelease bundleRelease
+          ./gradlew clean
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew bundleRelease --no-daemon --stacktrace
 
-      - name: Verify outputs
+      # 7. تجهيز مسارات الملفات الناتجة وتسميتها للرفع
+      - name: 7. Prepare Artifacts for Release
         run: |
-          test -s app/build/outputs/apk/release/app-release.apk
-          test -s app/build/outputs/bundle/release/app-release.aab
-          apksigner verify --verbose app/build/outputs/apk/release/app-release.apk
+          APK_PATH=$(find app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
+          AAB_PATH=$(find app/build/outputs/bundle/release/ -name "*.aab" | head -n 1)
+          
+          cp "$APK_PATH" Final-Release-Signed.apk
+          cp "$AAB_PATH" Final-Release-Signed.aab
 
-      - name: Upload APK, AAB, and checksums
-        uses: actions/upload-artifact@v4
-        with:
-          name: shater-invoices-${{ steps.release.outputs.tag }}
-          if-no-files-found: error
-          path: |
-            app/build/outputs/apk/release/app-release.apk
-            app/build/outputs/bundle/release/app-release.aab
-            app/build/outputs/mapping/release/**
-            !app/build/outputs/mapping/release/**/*.txt
-
-      - name: Create checksums
-        run: sha256sum app/build/outputs/apk/release/app-release.apk app/build/outputs/bundle/release/app-release.aab > shater-invoices-${{ steps.release.outputs.tag }}-SHA256SUMS.txt
-
-      - name: Create GitHub Release
+      # 8. رفع النسخة النهائية كـ Release على المستودع
+      - name: 8. Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.release.outputs.tag }}
-          name: شاطر للفواتير ${{ steps.release.outputs.tag }}
-          generate_release_notes: true
+          tag_name: v${{ github.run_number }}
+          name: "Kotlin Native Release v${{ github.run_number }}"
           files: |
-            app/build/outputs/apk/release/app-release.apk
-            app/build/outputs/bundle/release/app-release.aab
-            shater-invoices-${{ steps.release.outputs.tag }}-SHA256SUMS.txt
+            Final-Release-Signed.apk
+            Final-Release-Signed.aab
+            app/release-key.jks
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
