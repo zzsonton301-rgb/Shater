@@ -19,12 +19,12 @@ android {
 
     signingConfigs {
         create("release") {
-            // استقبال المسار الصحيح من متغير البيئة أو ضبطه على مجلد التطبيق app/ مباشرة
+            // استخدام مسار الجذر لضمان الوصول للملف الصحيح وتجنب تكرار مجلد app/app/
             val envStoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
             if (!envStoreFile.isNullOrBlank()) {
-                storeFile = file(envStoreFile)
+                storeFile = rootProject.file(envStoreFile)
             } else {
-                storeFile = file("release-key.jks") // سيتم تنفيذه داخل نطاق مجلد app
+                storeFile = rootProject.file("app/release-key.jks")
             }
 
             storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: "shater_pass_2026"
