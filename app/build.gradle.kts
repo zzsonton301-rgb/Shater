@@ -5,8 +5,29 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-android { namespace = "com.shater.invoices"; compileSdk = 35
+android {
+    namespace = "com.shater.invoices"
+    compileSdk = 35
     defaultConfig { applicationId = "com.shater.invoices"; minSdk = 26; targetSdk = 35; versionCode = 1; versionName = "1.0" }
+    signingConfigs {
+        create("release") {
+            val storeFilePath = System.getenv("ANDROID_KEYSTORE_FILE")
+            if (!storeFilePath.isNullOrBlank()) {
+                storeFile = file(storeFilePath)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            isShrinkResources = false
+            signingConfig = signingConfigs.getByName("release")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
     buildFeatures { compose = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
