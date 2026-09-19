@@ -45,6 +45,15 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    // إضافة استراتيجية لتوحيد وتثبيت إصدارات المكتبات ومنع تضارب الـ Classpath
+    configurations.all {
+        resolutionStrategy {
+            force("androidx.core:core-ktx:1.13.1")
+            force("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+            force("androidx.core:core-splashscreen:1.0.1")
+        }
+    }
 }
 
 kotlin {
@@ -72,7 +81,7 @@ dependencies {
     
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     
-    // تم رفع إصدارات مكتبات الكاميرا لتتوافق كلياً وتتجاوز خطأ التبعيات
+    // مكتبات الكاميرا بالإصدار 1.4.1 المستقر
     implementation("androidx.camera:camera-camera2:1.4.1")
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.camera:camera-view:1.4.1")
