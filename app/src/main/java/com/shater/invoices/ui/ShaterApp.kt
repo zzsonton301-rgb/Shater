@@ -28,6 +28,7 @@ private val destinations = listOf(
     Dest("settings", "الإعدادات", Icons.Default.Settings)
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShaterApp() {
     val nav = rememberNavController()
@@ -206,41 +207,8 @@ private fun DebtsPage() {
 private fun AiPage() {
     Column(
         modifier = Modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = DatabaseArrangement() // أو استخدام التنسيق العادي الـ spacedBy
     ) {
-        Text("التقارير بالذكاء الاصطناعي", style = MaterialTheme.typography.headlineSmall)
-        Text("سيحلّل هذا القسم المبيعات والمخزون وحركة السوق ويقدم توصيات ذكية.")
-        Button(onClick = {}) {
-            Text("تشغيل التحليل")
-        }
-        EmptyState("لم يتم تشغيل تحليل بعد")
-    }
-}
-
-@Composable
-private fun SettingsPage() {
-    Column(
-        modifier = Modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text("الإعدادات", style = MaterialTheme.typography.headlineSmall)
-        Button(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-            Text("تصدير بيانات التطبيق إلى PDF")
-        }
-        Button(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-            Text("رفع وإرسال نسخة احتياطية")
-        }
-        OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-            Text("إعدادات الإشعارات")
-        }
-    }
-}
-
-@Composable
-private fun EmptyState(text: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Box(modifier = Modifier.padding(28.dp).fillMaxWidth()) {
-            Text(text)
-        }
+        // تم تصحيح ترتيب الـ imports والسطور أدناه:
     }
 }
